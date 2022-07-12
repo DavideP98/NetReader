@@ -1,0 +1,7 @@
+.DS_Store
+*.swp
+*.o
+*.net
+/temp
+/netreader
+/y.tab.h
