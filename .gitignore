@@ -5,3 +5,5 @@
 /temp
 /netreader
 /y.tab.h
+/y.tab.c
+/lex.yy.c
