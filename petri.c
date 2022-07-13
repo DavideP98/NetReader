@@ -147,3 +147,74 @@ void print_net(){
 		}
 	}
 }
+
+void print_pml(){
+	printf("\n");
+	/* Dichiarazione dei posti (canali) */
+	struct place *pl;
+	for(int i = 0; i < pl_index; i++){
+		pl = pl_array[i];	
+		printf("chan %s = [1] of {bool};", pl->id);
+		if(pl->label != NULL)
+			printf("\t//%s", pl->label );
+		printf("\n");
+	}
+	printf("\n");
+	/* Transizioni */
+	struct transition *tr;
+	struct arc *a;
+	int j;
+	for(int i = 0; i < tr_index; i++){
+		tr = tr_array[i];
+		printf("active proctype %s(){\n", tr->id);
+		printf("\tdo\n");
+		printf("\t:: atomic{\n");
+		printf("\t    ( ");
+		a = tr->pre[0];
+		j = 1;	
+		while(a != NULL){
+			if(j > 1) printf("&& ");
+			printf("nempty(%s) ", pl_array[a->place]->id);
+			a = tr->pre[j];
+			j++;
+		}
+		a = tr->post[0];
+		j = 1;
+		printf("&& ");
+		while(a != NULL){
+			if(j > 1) printf("&& ");
+			printf("empty(%s) ", pl_array[a->place]->id);
+			a = tr->post[j];
+			j++;
+		}
+		printf(") ->\n");
+		a = tr->pre[0];
+		j = 1;
+		while(a != NULL){
+			printf("\t\t%s ? _;\n", pl_array[a->place]->id);
+			a = tr->pre[j];
+			j++;
+		}
+		a = tr->post[0];
+		j = 1;
+		while(a != NULL){
+			printf("\t\t%s ! true;\n", pl_array[a->place]->id);
+			a = tr->post[j];
+			j++;
+		}
+		printf("\t\tprintf(\"%s\\n\");\n", tr->id );
+		printf("\t   }\n");
+		printf("\tod\n");
+		printf("}\n\n");
+
+	}
+	
+	/* Marcatura iniziale (processo di init) */
+	printf("init{\n");
+	for(int i = 0; i < pl_index; i++){
+		pl = pl_array[i];
+		if(pl->tokens > 0)
+			printf("\t%s ! true;\n", pl->id);		
+	}
+	printf("}\n");
+}

@@ -3,6 +3,7 @@
 	#include<stdlib.h>
 	#include<stdbool.h> /* usata per la variabile pre_cond */
 	#include"petri.h"
+	#include<string.h>
 
 	void yyerror(char *s);	/* chiamata da yyparse() in caso di errore */ 
 	
@@ -89,20 +90,41 @@ place		: NAME '*' NUM
 
 extern FILE *yyin;
 
-int main(int argc, char **argv){
-	if (argc > 1){
-		FILE *file;
-
-		file = fopen(argv[1], "r");
-		if(!file){
-			fprintf(stderr, "could not open %s\n", argv[1]);
-			exit(1);
-		}
-		yyin = file;
+void read_file(char *filename){
+	FILE *file;
+	file = fopen(filename, "r");
+	if(!file){
+		fprintf(stderr, "could not open %s\n", filename);
+		exit(1);
 	}
-	petri_init(); /* istanzia l'array delle transizioni e dei posti */ 
-	yyparse();	  /* funzione generata da yacc */
-	print_net();  /* stampa la rete nel formato .net di TINA */ 
+	yyin = file;
+}
+
+int main(int argc, char **argv){
+
+	switch(argc){
+		case 1:
+			/* invocazione senza argomenti */
+			printf("Error: NetReader needs at least a filename\n");
+			break; 
+		case 2:
+			/* solo nome del file */
+			read_file(argv[1]);	
+			petri_init();
+			yyparse();
+			print_pml();
+			break;
+		case 3:
+			read_file(argv[2]);
+			petri_init();
+			yyparse();
+			if(!strcmp(argv[1],"-p"))
+				print_pml();
+			else if(!strcmp(argv[1], "-n"))
+				print_net();
+			else
+				printf("Unknown argument\n");
+	}
 }
 
 void yyerror (char *s) {

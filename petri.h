@@ -40,4 +40,6 @@ int find_place(const char *id);
 
 void print_net();
 
+void print_pml();
+
 #endif
