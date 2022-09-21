@@ -1,17 +1,17 @@
 # NetReader
 
 Parser dei file in formato .net (codifica testuale di una rete di Petri) del pacchetto TINA.
-Può convertire la rete in un programma Promela equivalente (per ora solo per sistemi elementari).
-Uno degli scopi del programma è quello di implementare un meccanismo di espansione della rete, in modo da
-poter generare reti di Petri di grandi dimensioni (ancora da implementare).
+Può convertire la rete in un modello Promela equivalente.
+Implementa un semplice meccanismo di copia di posti e transizioni per ingrandire una rete.
 
 # Utilizzo: 
-./netreader -p rete.net
+per generare il modello Promela relativo alla rete:
+./netreader rete.net 
 
-fornisce in output il programma Promela equivalente alla rete di Petri passata in input
+Esempio di ingrandimento della rete:
+Si crea in Nd un'annotazione contenente una direttiva di questo tipo: 10(p0, p1, t0, t1)
+10 è il numero di copie da creare e all'interno delle parentesi sono specificati i posti e le transizioni da copiare (selezione).
 
-./netreader -n rete.net
-
-fornisce in output la rete in formato .net basata sulla struttura dati allocata internamente 
-(sarà utile soltanto dopo l'implementazione del meccanismo di espansione).
+Gli archi dagli elementi della selezione ad altri elementi della selezioni diventano archi da copie a copie all'interno dello stesso lotto.
+Gli archi dagli elementi della selezione ad elementi al di fuori della selezione diventano archi da copie ad elementi della rete originale.
 
