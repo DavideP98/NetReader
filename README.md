@@ -13,5 +13,7 @@ Si crea in Nd un'annotazione contenente una direttiva di questo tipo: 10(p0, p1,
 10 è il numero di copie da creare e all'interno delle parentesi sono specificati i posti e le transizioni da copiare (selezione).  
 
 Gli archi dagli elementi della selezione ad altri elementi della selezioni diventano archi da copie a copie all'interno dello stesso lotto.
-Gli archi dagli elementi della selezione ad elementi al di fuori della selezione diventano archi da copie ad elementi della rete originale.
+Gli archi dagli elementi della selezione ad elementi al di fuori della selezione diventano archi da copie ad elementi della rete originale.   
+
+É anche presente una funzione print_net() per stampare la nuova rete in formato .net
 
