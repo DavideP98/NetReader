@@ -1,18 +1,11 @@
 %{
+	#include"petri.h"
 	#include<stdio.h>
 	#include<stdlib.h>
-	#include<stdbool.h> /* usata per la variabile pre_cond */
-	#include"petri.h"
+	#include<stdbool.h>
 	#include<string.h>
-
+	int yylex();
 	void yyerror(char *s);	/* chiamata da yyparse() in caso di errore */ 
-	
-	extern unsigned int tr_index;
-	extern unsigned int pl_index;
-	extern unsigned int pre_index;
-	extern unsigned int post_index;
-	extern bool pre_cond;	/* vera quando si sta effettuando il parsing di
-	pre-condizioni */ 
 %}
 
 %union {
@@ -37,39 +30,60 @@
 net			: trdesc net
 			| pldesc net
 			| andesc net
-			| NET name_list		
+			| NET NAME	
 				{ return 0; }	/* Parsing finito */ 
 			;
 
 trdesc		: TR NAME ':' label pl_list ARROW pl_list
-				{	update_transition($2, $4);	
-					pre_index = 0;
-					post_index = 0;
+				{	
+					add_transition($2, $4, tr_index);
+					tr_index++;
 				}
 			| TR NAME pl_list ARROW pl_list
-				{	update_transition($2, NULL);
-					pre_index = 0;
-					post_index = 0;
+				{	
+					add_transition($2, NULL, tr_index);
+					tr_index++;
 				}
 			;
 
 pldesc		: PL NAME ':' label '(' NUM ')'
-				{ update_place($2, $4, $6); }
+				{
+					add_place($2, $4, pl_index, 0, $6);
+				}
 			| PL NAME ':' label
-				{ update_place($2, $4, 0); }
+				{
+				}
 			| PL NAME '(' NUM ')'
-				{ update_place($2, NULL, $4); }
+				{
+					add_place($2, NULL, pl_index, 0, $4);
+				}
 			;
 
-andesc		: AN NAME NUM label
+andesc		: AN NAME NUM '{' exp '}'
 			;
 
 label		: NAME
 			| TEXT
 			;
 
-name_list	: NAME name_list
+exp			: NUM '(' name_list ')' exp
+				{
+					pl_limit = pl_index - 1;
+					tr_limit = tr_index - 1;
+					copy_selection($1);	 
+				}
+			| /* epsilon */
+			;
+
+name_list	: NAME ',' name_list
+				{
+					select($1);
+
+				}
 			| NAME
+				{
+					select($1);
+				}
 			;
 
 pl_list		: place pl_list
@@ -78,12 +92,12 @@ pl_list		: place pl_list
 			;
 
 place		: NAME '*' NUM
-				{	add_transition();
-					add_place($1, $3); 
+				{	
+					add_place($1, NULL, pl_index, $3, 0);
 				}
 			| NAME	
-				{	add_transition();
-					add_place($1, 1);
+				{
+					add_place($1, NULL, pl_index, 1, 0);
 				}
 			;
 %%
@@ -101,30 +115,10 @@ void read_file(char *filename){
 }
 
 int main(int argc, char **argv){
-
-	switch(argc){
-		case 1:
-			/* invocazione senza argomenti */
-			printf("Error: NetReader needs at least a filename\n");
-			break; 
-		case 2:
-			/* solo nome del file */
-			read_file(argv[1]);	
-			petri_init();
-			yyparse();
-			print_pml();
-			break;
-		case 3:
-			read_file(argv[2]);
-			petri_init();
-			yyparse();
-			if(!strcmp(argv[1],"-p"))
-				print_pml();
-			else if(!strcmp(argv[1], "-n"))
-				print_net();
-			else
-				printf("Unknown argument\n");
-	}
+	read_file(argv[1]);
+	petri_init();
+	yyparse();	// effettua il parsing del file .net ed applica l'espansione
+	print_pml();// stampa il modello Promela corrispondente alla rete
 }
 
 void yyerror (char *s) {

@@ -1,220 +1,323 @@
 #include"petri.h"
+#include<math.h>
+#include"uthash.h"
 #include<stdlib.h>
 #include<stdio.h>
 #include<string.h>
 
-struct transition **tr_array; 
 
-struct place **pl_array;
-
-unsigned int tr_index = 0;
-unsigned int pl_index = 0; 
-unsigned int pre_index = 0;	
-unsigned int post_index = 0;
+int **net = NULL;
+unsigned int pl_limit;
+unsigned int tr_limit;
 bool pre_cond = true;
+unsigned int pl_index = 0;
+unsigned int tr_index = 0;
+struct place *pl_map = NULL;
+struct transition *tr_map = NULL;
 
-/*
- * Istanzia l'array dei posti e l'array delle transizioni
- */
 void petri_init(){
-	tr_array = (struct transition **) malloc(20 * sizeof(struct transition *));
-	pl_array = (struct place **) malloc(20 * sizeof(struct place *));
-}
-
-/*
- * Alloca lo spazio per una transitione e inserisce il puntatore verso tale
- * struttura nell'array di puntatori alle transizioni.
- */
-void add_transition(){
-	if(tr_array[tr_index] == NULL){ /* transizione non ancora istanziata */
-		tr_array[tr_index] = (struct transition *) 
-			malloc(sizeof (struct transition));
-		tr_array[tr_index]->pre = (struct arc **)
-			malloc(10 * sizeof(struct arc *));
-		tr_array[tr_index]->post = (struct arc **)
-			malloc(10 * sizeof(struct arc *));
+	/* Allocazione della matrice di incidenza */
+	net = (int **) calloc(N_INIT, sizeof(int*));
+	for(unsigned int i = 0; i < N_INIT; i++){
+		net[i] = (int *) calloc(N_INIT, sizeof(int));
 	}
 }
 
-void update_transition(const char *id, const char *label){
-	struct transition *tr = tr_array[tr_index];
-	tr->id = (char *) malloc(sizeof(strlen(id) + 1));
-	strcpy(tr->id, id);
-	if(label != NULL){ /* L'etichetta non è obbligatoria */
-		tr->label = (char *) malloc(sizeof(strlen(label) + 1));
-		strcpy(tr->label, label);
-	}
-	tr_index++;	/* il parsing della transizione è terminato, si può incrementare
-				   il contatore */ 
-}
-
-/*
- * Aggiunge un posto all'array dei posti (se non è già presente) e aggiorna le
- * informazioni sulle pre/post condizioni della transizione di indice tr_index
- */
-void add_place(const char *id, unsigned int weight){
-	int temp_index = find_place(id);
-	if(temp_index == -1){
-	    /* Aggiungi posto */
-		struct place *pl = (struct place *) malloc(sizeof(struct place));
-		pl->id = (char *) malloc(strlen(id) + 1);
-		strcpy(pl->id, id);
-		pl_array[pl_index] = pl;
-		temp_index = pl_index;
-		pl_index++;
-	}
-	struct transition *tr = tr_array[tr_index];
-	struct arc *a = (struct arc *) malloc(sizeof (struct arc));
-	a->place = temp_index;
-	a->weight = weight;
-	if(pre_cond){
-		/* il posto attuale è una pre-condizione di tr */
-		tr->pre[pre_index]  = a;
-		pre_index++;
-	}else{
-		tr->post[post_index] = a;
-		post_index++;
-	}
-}
-
-/*
- * Inserimento dell'informazione riguardante il numero di token di un posto
- */
-void update_place(const char *id, const char *label, unsigned int tokens){
-	int temp_index = find_place(id);
-	struct place *pl = pl_array[temp_index];
-	pl->tokens = tokens;
-	if(label != NULL){
-		pl->label = (char *) malloc(sizeof(strlen(label) + 1));
-		strcpy(pl->label, label);
-	}
-}
-
-/* 
- * Compie una ricerca lineare nell'array dei posti per determinare se il posto
- * di nome id è presente. Se è presente ritorna il suo indice, altrimenti 
- * ritorna -1
- */
-int find_place(const char *id){
-	for(int i = 0; i < pl_index; i++)
-		if(strcmp(id, pl_array[i]->id) == 0){
-			return i;
+void add_place(char *name, char *label, unsigned int index, int weight, unsigned int tokens){
+	struct place *temp;
+	HASH_FIND_STR(pl_map, name, temp);
+	if(temp == NULL){	/* Il posto non è presente nella mappa*/
+		temp = malloc(sizeof *temp);
+		temp->id = (char *) malloc(sizeof(char) * strlen(name) + 1);
+		strcpy(temp->id, name);
+		if(label != NULL){
+			temp->label = (char *) malloc(sizeof(char) * strlen(label) + 1);
+			strcpy(temp->label, label);
 		}
-	return -1;
+		temp->tokens = tokens;
+		temp->net_pl_index = index;
+		temp->selected = false;
+		HASH_ADD_KEYPTR(hh, pl_map, temp->id, strlen(temp->id), temp);
+		/* Aggiorna matrice d'incidenza */
+		net[pl_index][tr_index] = pre_cond ? -weight : weight;
+		pl_index++;	
+	}else{	/* Il posto è già nella mappa, pl_index non viene incrementato*/
+		temp->tokens = tokens;
+		temp->selected = false;
+		if(label != NULL){
+			temp->label = (char *) malloc(sizeof(char) * strlen(label) + 1);
+			strcpy(temp->label, label);
+		}
+		if(tokens == 0){
+			/* aggiornare la matrice d'incidenza */
+			net[temp->net_pl_index][tr_index] = pre_cond ? -weight : weight;
+		}
+	}
+}
+
+
+void add_transition(char *name, char *label, unsigned int index){
+	struct transition *temp;
+	// Controllo che la transizione non sia già presente nella mappa
+	// Nella struttura dei file .net le transizioni non vengono ripeture
+	HASH_FIND_STR(tr_map, name, temp);
+	if(temp == NULL){
+		temp = malloc(sizeof *temp); 
+		temp->id	= (char *) malloc(sizeof(char) * strlen(name) + 1);
+		strcpy(temp->id, name);
+		if(label != NULL){
+			temp->label = (char *) malloc(sizeof(char) * strlen(label) + 1);
+			strcpy(temp->label, label);
+		}
+		temp->net_tr_index = index;
+		temp->selected = false;
+		HASH_ADD_KEYPTR(hh, tr_map, temp->id, strlen(temp->id), temp);
+		
+	}
+}
+
+void select(char *name){
+
+	struct transition *tr;
+	HASH_FIND_STR(tr_map, name, tr);
+
+	if(tr == NULL){
+		struct place *pl;
+		HASH_FIND_STR(pl_map, name, pl);
+		if(pl != NULL){
+			pl->selected = true;
+		}
+	}else{
+		tr->selected = true;
+	}
+}
+
+void copy_selection(unsigned int n){
+	struct place *pl;
+	for(pl = pl_map; pl != NULL; pl = pl->hh.next){
+		if(pl->selected){
+			for(int i = 0; i < n; i++){
+				/* Aggiungo una copia con un nuovo nome */
+				add_place(get_new_id(pl->id, i), pl->label, pl_index,
+					0, pl->tokens);	
+				struct place *tmp_pl;
+				HASH_FIND_STR(pl_map, get_new_id(pl->id, i), tmp_pl);
+				tmp_pl->p_index = pl->net_pl_index;
+			}
+		}
+	}
+	struct transition *tr;
+	for(tr = tr_map; tr != NULL; tr = tr->hh.next){
+		if(tr->selected){
+			for(int i = 0; i < n; i++){
+				add_transition(get_new_id(tr->id, i), tr->label, tr_index); 
+				tr_index++;
+				struct transition *tmp_tr;
+				HASH_FIND_STR(tr_map, get_new_id(tr->id, i), tmp_tr);
+				tmp_tr->p_index = tr->net_tr_index;
+			}
+		}
+	}
+	unsigned int i = 0, j = 0;
+	for(pl = pl_map; pl != NULL; pl = pl->hh.next){
+		i = pl->net_pl_index;	
+		for(tr = tr_map; tr != NULL; tr = tr->hh.next){
+			j = tr->net_tr_index;
+			if(i > pl_limit){
+				// il posto i è una copia
+				if(j > tr_limit){
+					// il posto i e la transitione j sono copie
+					// controlla se appartengono allo stesso batch di copie
+					if(get_batch_index(pl->id) == get_batch_index(tr->id)){
+						net[i][j] = net[pl->p_index][tr->p_index];
+					}
+				}else{
+					if(net[pl->p_index][j] != 0 && !tr->selected)
+						net[i][j] = net[pl->p_index][j]; 
+				}
+			}else{
+				if(j > tr_limit)
+					// la transizione j è una copia
+					if(net[i][tr->p_index] != 0 && !pl->selected)
+						net[i][j] = net[i][tr->p_index];
+				
+			}
+		}
+	}
+}
+
+char * get_new_id(char *old_id, unsigned int num){
+	/* numero di cifre che compone il numero */
+	unsigned int str_size = ceil(log10(num) + 1);
+	char *new_id = (char *)
+		malloc((strlen(old_id) + str_size + 1) * sizeof(char));
+	strcpy(new_id, old_id);
+	/* conversione in stringa del numero */
+	char temp[str_size];
+	sprintf(temp, "_%d", num);
+
+	/* generazione del nuovo id */
+	strcat(new_id, temp);
+
+	return new_id;
+}
+
+int get_batch_index(char *ptr){
+	unsigned int i = 0;
+	bool parse_num = false;
+	char tmp[5] = "";
+	for(; *ptr; ptr++){
+		if(*ptr == '_') parse_num = true; 
+		if(parse_num && *ptr >= '0' && *ptr <= '9'){
+			tmp[i] = *ptr;
+			i++;
+		}
+	}
+	if(!strcmp(tmp, ""))
+		return -1;
+	else
+		return atoi(tmp);
+}
+
+void print_matrix(unsigned int height, unsigned int length){
+	
+	for(int i = 0; i < height; i++){
+		for(int j = 0; j < length; j++){
+			if(net[i][j] < 0)
+				printf("%d ", net[i][j]);
+			else /* lascio uno spazio in più per compensare l'assenza del meno */
+				printf(" %d ", net[i][j]);
+		}
+		printf("\n");
+	}
 }
 
 void print_net(){
-	/* stampa delle transizioni */
-	for(int i = 0; i < tr_index; i++){
-		struct transition *tr = tr_array[i];
-		if(tr->label != NULL)
-			printf("tr %s : %s [0,w[ ", tr->id, tr->label);
-		else
-			printf("tr %s [0,w[ ", tr->id);
-		/* stampa pre-condizioni */
-		struct arc *a = tr->pre[0];
-		int j = 1;
-		while(a != NULL){
-			if(a->weight > 1)
-				printf("%s*%d ", pl_array[a->place]->id, a->weight);
-			else
-				printf("%s ", pl_array[a->place]->id);
-			a = tr->pre[j];
-			j++;
+	struct transition *tr;
+	struct place *pl;
+	int weight = 0;
+	for(tr = tr_map; tr != NULL; tr = tr->hh.next){
+		printf("tr %s [0,w[ ", tr->id);
+		for(pl = pl_map; pl != NULL; pl = pl->hh.next){
+			weight = net[pl->net_pl_index][tr->net_tr_index];
+			if(weight < -1){
+				printf("%s*%d ", pl->id, abs(weight));	
+			}else if(weight < 0){
+				printf("%s ", pl->id);
+			}
 		}
 		printf("-> ");
-		a = tr->post[0];
-		j = 1;
-		while(a != NULL){
-			if(a->weight > 1)
-				printf("%s*%d ", pl_array[a->place]->id, a->weight);
-			else
-				printf("%s ", pl_array[a->place]->id);
-			a = tr->post[j];
-			j++;
+		for(pl = pl_map; pl != NULL; pl = pl->hh.next){
+			weight = net[pl->net_pl_index][tr->net_tr_index];
+			if(weight > 1){
+				printf("%s*%d ", pl->id, weight);	
+			}else if(weight > 0){
+				printf("%s ", pl->id);
+			}
 		}
 		printf("\n");
 	}
-	/* Stampa dei posti */
-	for(int i = 0; i < pl_index; i++){
-		struct place *pl = pl_array[i];
+	for(pl = pl_map; pl != NULL; pl = pl->hh.next){
 		if(pl->tokens > 0){
-			if(pl->label != NULL)
-				printf("pl %s : %s (%d)", pl->id, pl->label, pl->tokens);
-			else
-				printf("pl %s (%d)", pl->id, pl->tokens);
-			printf("\n");
+			printf("pl %s (%d) \n", pl->id, pl->tokens);	
 		}
 	}
+	printf("net test\n");
 }
 
 void print_pml(){
-	printf("\n");
-	/* Dichiarazione dei posti (canali) */
+	// definizione dei posti
 	struct place *pl;
-	for(int i = 0; i < pl_index; i++){
-		pl = pl_array[i];	
-		printf("chan %s = [1] of {bool};", pl->id);
-		if(pl->label != NULL)
-			printf("\t//%s", pl->label );
-		printf("\n");
+	for(pl = pl_map; pl != NULL; pl = pl->hh.next){
+		printf("byte %s = 0;\n", pl->id);
 	}
-	printf("\n");
-	/* Transizioni */
 	struct transition *tr;
-	struct arc *a;
-	int j;
-	for(int i = 0; i < tr_index; i++){
-		tr = tr_array[i];
+	bool first = true;
+	for(tr = tr_map; tr != NULL; tr = tr->hh.next){
 		printf("active proctype %s(){\n", tr->id);
 		printf("\tdo\n");
-		printf("\t:: atomic{\n");
-		printf("\t    ( ");
-		a = tr->pre[0];
-		j = 1;	
-		while(a != NULL){
-			if(j > 1) printf("&& ");
-			printf("nempty(%s) ", pl_array[a->place]->id);
-			a = tr->pre[j];
-			j++;
+		printf("\t:: atomic{\n\t\t");
+		for(pl = pl_map; pl != NULL; pl = pl->hh.next){
+			if(net[pl->net_pl_index][tr->net_tr_index] < 0){
+				if(first){
+					printf("(%s > 0 ", pl->id);
+					first = false;
+				}else{
+					printf("&& %s > 0 ", pl->id);
+				}
+			}
+		}	
+		first = true;
+		printf(") -> \n");
+		// Modifica la marcatura
+		for(pl = pl_map; pl != NULL; pl = pl->hh.next){
+			if(net[pl->net_pl_index][tr->net_tr_index] < 0)
+				printf("\t\t%s--;\n", pl->id);
+			else if(net[pl->net_pl_index][tr->net_tr_index] > 0)
+				printf("\t\t%s++;\n", pl->id);
 		}
-		a = tr->post[0];
-		j = 1;
-		printf("&& ");
-		while(a != NULL){
-			if(j > 1) printf("&& ");
-			printf("empty(%s) ", pl_array[a->place]->id);
-			a = tr->post[j];
-			j++;
-		}
-		printf(") ->\n");
-		a = tr->pre[0];
-		j = 1;
-		while(a != NULL){
-			printf("\t\t%s ? _;\n", pl_array[a->place]->id);
-			a = tr->pre[j];
-			j++;
-		}
-		a = tr->post[0];
-		j = 1;
-		while(a != NULL){
-			printf("\t\t%s ! true;\n", pl_array[a->place]->id);
-			a = tr->post[j];
-			j++;
-		}
-		printf("\t\tprintf(\"%s\\n\");\n", tr->id );
-		printf("\t   }\n");
+		printf("\t}\n");
 		printf("\tod\n");
-		printf("}\n\n");
-
+		printf("}\n");
 	}
-	
-	/* Marcatura iniziale (processo di init) */
 	printf("init{\n");
-	for(int i = 0; i < pl_index; i++){
-		pl = pl_array[i];
+	for(pl = pl_map; pl != NULL; pl = pl->hh.next){
 		if(pl->tokens > 0)
-			printf("\t%s ! true;\n", pl->id);		
+			printf("\t%s = %d;\n", pl->id, pl->tokens);
 	}
 	printf("}\n");
+
 }
+
+/*
+void print_pml2(){
+	// definizione macro
+	printf("#define inp(x) (x > 0) -> x = x - 1\n");
+	printf("#define out(x) x = x + 1\n");
+	// definizione dei posti
+	struct place *pl;
+	for(pl = pl_map; pl != NULL; pl = pl->hh.next){
+		printf("byte %s;\n", pl->id);
+	}
+	printf("\n");
+	printf("init{\n");
+	// marcatura iniziale
+	for(pl = pl_map; pl != NULL; pl = pl->hh.next){
+		if(pl->tokens > 0)
+			printf("\t%s = %d;\n", pl->id, pl->tokens);
+	}
+	printf("\tdo\n");
+	struct transition *tr;
+	for(tr = tr_map; tr != NULL; tr = tr->hh.next){
+		printf("\t// %s\n", tr->id); 
+		printf("\t:: atomic{");
+		bool first = true;
+		for(pl = pl_map; pl != NULL; pl = pl->hh.next){
+			if(net[pl->net_pl_index][tr->net_tr_index] < 0){
+				if(first){
+					printf("inp(%s)", pl->id);
+					first = false;
+				}else{
+					printf(" && inp(%s)", pl->id);
+				}
+			}
+		}
+		printf(" -> ");
+		first = true;
+		for(pl = pl_map; pl != NULL; pl = pl->hh.next){
+			if(net[pl->net_pl_index][tr->net_tr_index] > 0){
+				if(first){
+					printf("out(%s)", pl->id);
+					first = false;
+				}else{
+					printf("; out(%s)", pl->id);
+				}
+			}
+		}
+		printf("}\n");
+	}
+	printf("\tod\n");
+	printf("}\n");
+}
+*/
+
