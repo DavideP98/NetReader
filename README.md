@@ -6,7 +6,14 @@ Implementa un semplice meccanismo di copia di posti e transizioni per ingrandire
 
 # Utilizzo: 
 per generare il modello Promela relativo alla rete:   
-./netreader rete.net 
+./netreader rete.net  
+
+Di default viene usata la strategia più veloce per la simulazione delle reti di Petri, in alternativa si può     
+usare una strategia alternativa, che utilizza un processo per simulare ciascuna transizione:   
+./netreader -pml2 rete.net     
+
+Per avere in output la rete in formato .net (utile nel caso di espansione della rete):   
+./netreader -net rete.net   
 
 Esempio di ingrandimento della rete:   
 Si crea in Nd un'annotazione contenente una direttiva di questo tipo: 10(p0, p1, t0, t1)     
@@ -15,5 +22,4 @@ Si crea in Nd un'annotazione contenente una direttiva di questo tipo: 10(p0, p1,
 Gli archi dagli elementi della selezione ad altri elementi della selezioni diventano archi da copie a copie all'interno dello stesso lotto.
 Gli archi dagli elementi della selezione ad elementi al di fuori della selezione diventano archi da copie ad elementi della rete originale.   
 
-É anche presente una funzione print_net() per stampare la nuova rete in formato .net
 
