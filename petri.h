@@ -4,7 +4,7 @@
 #include<stdbool.h>
 #include"uthash.h"
 
-#define N_INIT 1000		// Numero massimo di posti e transizioni che la matrice può accogliere 
+#define N_INIT 10000		// Numero massimo di posti e transizioni che la matrice può accogliere 
 extern int **net;		// puntatore della matrice di incidenza
 extern unsigned int net_limit;
 extern unsigned int pl_index;		// contatore dei posti
@@ -45,7 +45,7 @@ void add_transition(char *id, char *label, unsigned int index);
 
 /* 
  * Aggiunge un posto alla hash-map delle transizioni
- * pl_index viene incrementato, se il posto non è già presente
+ * se il posto non è già presente, pl_index viene incrementato 
  */
 void add_place(char *id, char *label, unsigned int index, int weight, unsigned int tokens);
 
@@ -68,11 +68,10 @@ int get_batch_index(char *ptr);
 /* stampa la rete in formato .net */
 void print_net();
 
-/* stampa il modello Promela corrispondente alla rete */
+/* stampa il modello Promela corrispondente alla rete (strategia veloce) */
 void print_pml();
 
-/* stampa del modello Promela con un altra strategia */
+/* stampa del modello Promela con un'altra strategia (strategia lenta)*/
 void print_pml2();
-
 
 #endif

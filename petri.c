@@ -5,7 +5,6 @@
 #include<stdio.h>
 #include<string.h>
 
-
 int **net = NULL;
 unsigned int pl_limit;
 unsigned int tr_limit;
@@ -225,11 +224,11 @@ void print_net(){
 	printf("net test\n");
 }
 
-void print_pml(){
+void print_pml2(){
 	// definizione dei posti
 	struct place *pl;
 	for(pl = pl_map; pl != NULL; pl = pl->hh.next){
-		printf("byte %s = 0;\n", pl->id);
+		printf("byte %s = %d;\n", pl->id, pl->tokens);
 	}
 	struct transition *tr;
 	bool first = true;
@@ -260,64 +259,52 @@ void print_pml(){
 		printf("\tod\n");
 		printf("}\n");
 	}
-	printf("init{\n");
-	for(pl = pl_map; pl != NULL; pl = pl->hh.next){
-		if(pl->tokens > 0)
-			printf("\t%s = %d;\n", pl->id, pl->tokens);
-	}
-	printf("}\n");
-
 }
 
-/*
-void print_pml2(){
-	// definizione macro
-	printf("#define inp(x) (x > 0) -> x = x - 1\n");
-	printf("#define out(x) x = x + 1\n");
-	// definizione dei posti
+void print_pml(){
 	struct place *pl;
 	for(pl = pl_map; pl != NULL; pl = pl->hh.next){
-		printf("byte %s;\n", pl->id);
+		printf("byte %s = %d;\n", pl->id, pl->tokens);
 	}
-	printf("\n");
+	printf("#define inp1(x) (x > 0) -> x = x - 1\n");
+	printf("#define inp2(x, y) (x > 0 && y > 0) -> x = x - 1; y = y - 1\n");
+	printf("#define out1(x) x = x + 1\n");
+	printf("#define out2(x, y) x = x + 1; y = y + 1\n");
 	printf("init{\n");
-	// marcatura iniziale
-	for(pl = pl_map; pl != NULL; pl = pl->hh.next){
-		if(pl->tokens > 0)
-			printf("\t%s = %d;\n", pl->id, pl->tokens);
-	}
 	printf("\tdo\n");
+
 	struct transition *tr;
 	for(tr = tr_map; tr != NULL; tr = tr->hh.next){
-		printf("\t// %s\n", tr->id); 
-		printf("\t:: atomic{");
-		bool first = true;
+		printf("\t:: atomic { ");
+		struct place *tmp;
+		char *pre[2];
+		char *post[2];
+		int cont_pre = 0;
+		int cont_post = 0;
 		for(pl = pl_map; pl != NULL; pl = pl->hh.next){
 			if(net[pl->net_pl_index][tr->net_tr_index] < 0){
-				if(first){
-					printf("inp(%s)", pl->id);
-					first = false;
-				}else{
-					printf(" && inp(%s)", pl->id);
-				}
+				pre[cont_pre] = pl->id;
+				cont_pre++;
+			}else if(net[pl->net_pl_index][tr->net_tr_index] > 0){
+				post[cont_post] = pl->id;
+				cont_post++;
 			}
 		}
-		printf(" -> ");
-		first = true;
-		for(pl = pl_map; pl != NULL; pl = pl->hh.next){
-			if(net[pl->net_pl_index][tr->net_tr_index] > 0){
-				if(first){
-					printf("out(%s)", pl->id);
-					first = false;
-				}else{
-					printf("; out(%s)", pl->id);
-				}
-			}
+		if(cont_pre > 1){
+			printf("inp2(%s, %s) -> ", pre[0], pre[1]);
+			if(cont_post > 1)
+				printf("out2(%s, %s)} /* %s */\n", post[0], post[1], tr->id);
+			else
+				printf("out1(%s)} /* %s */\n", post[0], tr->id);
+		}else{
+			printf("inp1(%s) -> ", pre[0]);
+			if(cont_post > 1)
+				printf("out2(%s, %s)} /* %s */\n", post[0], post[1], tr->id);
+			else
+				printf("out1(%s)} /* %s */\n", post[0], tr->id);
 		}
-		printf("}\n");
+
 	}
-	printf("\tod\n");
-	printf("}\n");
+	printf("\tod\n}\n");
 }
-*/
 

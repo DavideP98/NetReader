@@ -115,10 +115,34 @@ void read_file(char *filename){
 }
 
 int main(int argc, char **argv){
-	read_file(argv[1]);
-	petri_init();
-	yyparse();	// effettua il parsing del file .net ed applica l'espansione
-	print_pml();// stampa il modello Promela corrispondente alla rete
+	switch(argc){
+		case 1:
+			printf("Error: missing file name argument\n");
+			break;
+		case 2:
+			// l'output di default è il modello Promela (metodo veloce)
+			read_file(argv[1]);
+			petri_init();
+			yyparse();
+			print_pml();
+			break;
+		case 3:
+			read_file(argv[2]);
+			petri_init();
+			yyparse();
+			if(!strcmp(argv[1], "-net"))
+				print_net();
+			else if(!strcmp(argv[1], "-pml"))
+				print_pml();
+			else if(!strcmp(argv[1], "-pml2"))
+				print_pml2();
+			else
+				printf("Unknown argument: possible arguments are -net -pml -pml2\n");
+			break;
+		case 4:
+			printf("Error: too many arguments\n");
+			break;
+	}
 }
 
 void yyerror (char *s) {
