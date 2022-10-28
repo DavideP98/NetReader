@@ -6,6 +6,8 @@
 	#include<string.h>
 	int yylex();
 	void yyerror(char *s);	/* chiamata da yyparse() in caso di errore */ 
+	char *temp[5];
+	int cnt;
 %}
 
 %union {
@@ -66,23 +68,47 @@ label		: NAME
 			| TEXT
 			;
 
-exp			: NUM '(' name_list ')' exp
+exp			: NUM '(' name_list ')' exp /* sintassi espansione rete */
 				{
 					pl_limit = pl_index - 1;
 					tr_limit = tr_index - 1;
 					copy_selection($1);	 
 				}
+			/* sintassi per la strategia del gioco su rete di petri */
+			| strategy exp 
 			| /* epsilon */
+			;	
+
+strategy	: name_list_p ':' NAME ';'
+				{
+					struct transition *tr;
+					HASH_FIND_STR(tr_map, $3, tr);
+					for(int i = 0; i < 5; i++){
+						tr->strategy[i] = temp[i];
+					}
+					cnt = 0;
+				}
+			;
+
+name_list_p : NAME ',' name_list_p
+				{
+					temp[cnt] = $1;	
+					cnt++;
+				}
+			| NAME
+				{
+					temp[cnt] = $1;
+					cnt++;
+				}
 			;
 
 name_list	: NAME ',' name_list
 				{
-					select($1);
-
+					_select($1);
 				}
 			| NAME
 				{
-					select($1);
+					_select($1);
 				}
 			;
 
@@ -143,6 +169,18 @@ int main(int argc, char **argv){
 			printf("Error: too many arguments\n");
 			break;
 	}
+	/*
+	struct transition *tr;
+	for(tr = tr_map; tr != NULL; tr = tr->hh.next){
+		if(tr->strategy[0] != NULL){
+			printf("%s scatta quando: ", tr->id);
+			for(int i = 0; i < 5; i++){
+				printf("%s ", tr->strategy[i]);
+			}
+			printf("sono marcati\n");
+		}
+	}
+	*/
 }
 
 void yyerror (char *s) {

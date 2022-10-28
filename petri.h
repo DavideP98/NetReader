@@ -20,8 +20,9 @@ struct transition{
 	char *label;
 	unsigned int net_tr_index;		// Indice nella matrice d'adiacenza
 	UT_hash_handle hh;				// Per utilizzare la struct nella hash-map
-	bool selected;
+	bool _selected;
 	unsigned int p_index;
+	char *strategy[5];
 };
 
 struct place{
@@ -30,7 +31,7 @@ struct place{
 	unsigned int net_pl_index;		// Indice nella matrice d'adiacenza
 	unsigned int tokens;
 	UT_hash_handle hh;				// Per utilizzare la struct nella hash-map
-	bool selected;
+	bool _selected;
 	unsigned int p_index;
 };
 
@@ -53,7 +54,7 @@ void add_place(char *id, char *label, unsigned int index, int weight, unsigned i
 void print_matrix(unsigned int height, unsigned int length);
 
 /* seleziona i posti e le transizioni da duplicare */
-void select(char *name);
+void _select(char *name);
 
 /* 
  * effettua la copia dei posti e delle transizioni selezionate

@@ -5,7 +5,7 @@
 #include<stdio.h>
 #include<string.h>
 
-int **net = NULL;
+int **net = NULL; 
 unsigned int pl_limit;
 unsigned int tr_limit;
 bool pre_cond = true;
@@ -33,16 +33,16 @@ void add_place(char *name, char *label, unsigned int index, int weight, unsigned
 			temp->label = (char *) malloc(sizeof(char) * strlen(label) + 1);
 			strcpy(temp->label, label);
 		}
-		temp->tokens = tokens;
+		temp->tokens = tokens; 
 		temp->net_pl_index = index;
-		temp->selected = false;
+		temp->_selected = false;
 		HASH_ADD_KEYPTR(hh, pl_map, temp->id, strlen(temp->id), temp);
 		/* Aggiorna matrice d'incidenza */
 		net[pl_index][tr_index] = pre_cond ? -weight : weight;
 		pl_index++;	
 	}else{	/* Il posto è già nella mappa, pl_index non viene incrementato*/
 		temp->tokens = tokens;
-		temp->selected = false;
+		temp->_selected = false;
 		if(label != NULL){
 			temp->label = (char *) malloc(sizeof(char) * strlen(label) + 1);
 			strcpy(temp->label, label);
@@ -69,32 +69,34 @@ void add_transition(char *name, char *label, unsigned int index){
 			strcpy(temp->label, label);
 		}
 		temp->net_tr_index = index;
-		temp->selected = false;
+		for(int i = 0; i < 5; i++)
+			temp->strategy[i] = NULL;
+		temp->_selected = false;
 		HASH_ADD_KEYPTR(hh, tr_map, temp->id, strlen(temp->id), temp);
 		
 	}
 }
 
-void select(char *name){
+void _select(char *name){
 
 	struct transition *tr;
 	HASH_FIND_STR(tr_map, name, tr);
 
 	if(tr == NULL){
-		struct place *pl;
+		struct place *pl; 
 		HASH_FIND_STR(pl_map, name, pl);
 		if(pl != NULL){
-			pl->selected = true;
+			pl->_selected = true;
 		}
 	}else{
-		tr->selected = true;
+		tr->_selected = true;
 	}
 }
 
 void copy_selection(unsigned int n){
 	struct place *pl;
 	for(pl = pl_map; pl != NULL; pl = pl->hh.next){
-		if(pl->selected){
+		if(pl->_selected){
 			for(int i = 0; i < n; i++){
 				/* Aggiungo una copia con un nuovo nome */
 				add_place(get_new_id(pl->id, i), pl->label, pl_index,
@@ -107,7 +109,7 @@ void copy_selection(unsigned int n){
 	}
 	struct transition *tr;
 	for(tr = tr_map; tr != NULL; tr = tr->hh.next){
-		if(tr->selected){
+		if(tr->_selected){
 			for(int i = 0; i < n; i++){
 				add_transition(get_new_id(tr->id, i), tr->label, tr_index); 
 				tr_index++;
@@ -131,13 +133,13 @@ void copy_selection(unsigned int n){
 						net[i][j] = net[pl->p_index][tr->p_index];
 					}
 				}else{
-					if(net[pl->p_index][j] != 0 && !tr->selected)
+					if(net[pl->p_index][j] != 0 && !tr->_selected)
 						net[i][j] = net[pl->p_index][j]; 
 				}
 			}else{
 				if(j > tr_limit)
 					// la transizione j è una copia
-					if(net[i][tr->p_index] != 0 && !pl->selected)
+					if(net[i][tr->p_index] != 0 && !pl->_selected)
 						net[i][j] = net[i][tr->p_index];
 				
 			}
@@ -231,23 +233,36 @@ void print_pml2(){
 		printf("byte %s = %d;\n", pl->id, pl->tokens);
 	}
 	struct transition *tr;
-	bool first = true;
 	for(tr = tr_map; tr != NULL; tr = tr->hh.next){
+		bool first = true;
 		printf("active proctype %s(){\n", tr->id);
 		printf("\tdo\n");
 		printf("\t:: atomic{\n\t\t");
-		for(pl = pl_map; pl != NULL; pl = pl->hh.next){
-			if(net[pl->net_pl_index][tr->net_tr_index] < 0){
-				if(first){
-					printf("(%s > 0 ", pl->id);
-					first = false;
-				}else{
-					printf("&& %s > 0 ", pl->id);
+		if(tr->strategy[0] == NULL){
+			for(pl = pl_map; pl != NULL; pl = pl->hh.next){
+				if(net[pl->net_pl_index][tr->net_tr_index] < 0){
+					if(first){
+						printf("%s > 0 ", pl->id);
+						first = false;
+					}else{
+						printf("&& %s > 0 ", pl->id);
+					}
 				}
-			}
-		}	
+			}	
+		}
 		first = true;
-		printf(") -> \n");
+		int tmp = 0;
+		while(tr->strategy[tmp] != NULL){
+			if(first){
+				printf("%s > 0 ", tr->strategy[tmp]);
+				first = false;
+			}else{
+				printf("&& %s > 0 ", tr->strategy[tmp]);
+			}
+			tmp++;
+		}
+		printf(" -> \n");
+
 		// Modifica la marcatura
 		for(pl = pl_map; pl != NULL; pl = pl->hh.next){
 			if(net[pl->net_pl_index][tr->net_tr_index] < 0)
@@ -255,6 +270,7 @@ void print_pml2(){
 			else if(net[pl->net_pl_index][tr->net_tr_index] > 0)
 				printf("\t\t%s++;\n", pl->id);
 		}
+		printf("\t\tprintf(\"%s è scattata\\n\");\n", tr->id);
 		printf("\t}\n");
 		printf("\tod\n");
 		printf("}\n");

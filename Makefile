@@ -1,5 +1,5 @@
 netreader: y.tab.o lex.yy.o petri.o
-	gcc -o netreader petri.o y.tab.o lex.yy.o
+	gcc -lm -o netreader petri.o y.tab.o lex.yy.o
 
 y.tab.o: y.tab.c
 	gcc -c y.tab.c
