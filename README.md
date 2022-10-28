@@ -22,13 +22,13 @@ Si crea in Nd un'annotazione contenente una direttiva di questo tipo: 10(p0, p1,
 Gli archi dagli elementi della selezione ad altri elementi della selezioni diventano archi da copie a copie all'interno dello stesso lotto.
 Gli archi dagli elementi della selezione ad elementi al di fuori della selezione diventano archi da copie ad elementi della rete originale.   
 
-#Gioco su reti di Petri:  
+## Gioco su reti di Petri:  
 
 Per passare al programma le informazioni per la strategia del giocatore si usa questa sintassi:   
 p2, p3, ... : t4;   
 p2, p4, ... : t3;   
 
-#Verifica con Spin   
+## Verifica con Spin   
 spin -a -f "!goal" modello.pml   
 gcc -o pan pan.c   
 ./pan -a -f   
