@@ -37,8 +37,11 @@ void add_place(char *name, char *label, unsigned int index, int weight, unsigned
 		temp->net_pl_index = index;
 		temp->_selected = false;
 		HASH_ADD_KEYPTR(hh, pl_map, temp->id, strlen(temp->id), temp);
-		/* Aggiorna matrice d'incidenza */
-		net[pl_index][tr_index] = pre_cond ? -weight : weight;
+		/* Aggiorna matrice d'incidenza se il posto non è ausiliario per i loop*/
+		if(strncmp("l00pp", name, 5))
+			net[pl_index][tr_index] = pre_cond ? -weight : weight;
+		else
+			temp->is_aux = true;
 		pl_index++;	
 	}else{	/* Il posto è già nella mappa, pl_index non viene incrementato*/
 		temp->tokens = tokens;
@@ -68,6 +71,8 @@ void add_transition(char *name, char *label, unsigned int index){
 			temp->label = (char *) malloc(sizeof(char) * strlen(label) + 1);
 			strcpy(temp->label, label);
 		}
+		if(strncmp("l00pt", name, 5))
+			temp->is_aux = true;
 		temp->net_tr_index = index;
 		for(int i = 0; i < 5; i++)
 			temp->strategy[i] = NULL;
@@ -282,45 +287,86 @@ void print_pml(){
 	for(pl = pl_map; pl != NULL; pl = pl->hh.next){
 		printf("byte %s = %d;\n", pl->id, pl->tokens);
 	}
-	printf("#define inp1(x) (x > 0) -> x = x - 1\n");
-	printf("#define inp2(x, y) (x > 0 && y > 0) -> x = x - 1; y = y - 1\n");
-	printf("#define out1(x) x = x + 1\n");
-	printf("#define out2(x, y) x = x + 1; y = y + 1\n");
+
 	printf("init{\n");
 	printf("\tdo\n");
 
 	struct transition *tr;
 	for(tr = tr_map; tr != NULL; tr = tr->hh.next){
-		printf("\t:: atomic { ");
-		struct place *tmp;
-		char *pre[2];
-		char *post[2];
-		int cont_pre = 0;
-		int cont_post = 0;
-		for(pl = pl_map; pl != NULL; pl = pl->hh.next){
-			if(net[pl->net_pl_index][tr->net_tr_index] < 0){
-				pre[cont_pre] = pl->id;
-				cont_pre++;
-			}else if(net[pl->net_pl_index][tr->net_tr_index] > 0){
-				post[cont_post] = pl->id;
-				cont_post++;
+		printf("\t:: atomic { /* %s */\n", tr->id);
+		unsigned int col = tr->net_tr_index;
+		if(tr->user_tr){ /* Impostare strategia  */
+			/* stampa della guardia */ 
+			char **tmp = tr->strategy;
+			printf("\t\t%s > 0 ", *tmp);
+			for(tmp++; *tmp; tmp++)
+				printf("&& %s > 0 ", *tmp);
+			printf("-> \n");
+			/* aggiornamento della marcatura */
+			update_marking(col);
+		}else{	/* Normale simulazione */
+			bool first = true;
+			for(pl = pl_map; pl != NULL; pl = pl->hh.next){
+				if(net[pl->net_pl_index][col] < 0){		
+					if(first){
+						printf("\t\t%s > 0 ", pl->id);
+						first = false;
+					}else{
+						printf("&& %s > 0 ", pl->id);
+					}
+				}
 			}
+			// ciascuna transizione avrà un'inibitore per ciascun posto
+			// ausiliario della rete (per i loop), in modo che possa bloccarsi
+			// nel caso l'esecuzione di un loop fosse in sospeso.
+			for(pl = pl_map; pl != NULL; pl = pl->hh.next){
+				if(pl->is_aux && net[pl->net_pl_index][col] >= 0)
+					printf("&& %s == 0 ", pl->id);
+			}
+			printf("-> \n");
+			update_marking(tr->net_tr_index);
 		}
-		if(cont_pre > 1){
-			printf("inp2(%s, %s) -> ", pre[0], pre[1]);
-			if(cont_post > 1)
-				printf("out2(%s, %s)} /* %s */\n", post[0], post[1], tr->id);
-			else
-				printf("out1(%s)} /* %s */\n", post[0], tr->id);
-		}else{
-			printf("inp1(%s) -> ", pre[0]);
-			if(cont_post > 1)
-				printf("out2(%s, %s)} /* %s */\n", post[0], post[1], tr->id);
-			else
-				printf("out1(%s)} /* %s */\n", post[0], tr->id);
-		}
-
+		printf("\t}\n");
 	}
 	printf("\tod\n}\n");
 }
+
+void update_marking(unsigned int col){
+	struct place *pl;
+	for(pl = pl_map; pl != NULL; pl = pl->hh.next){
+		if(net[pl->net_pl_index][col] < 0)
+			printf("\t\t%s--;\n", pl->id);
+		else if(net[pl->net_pl_index][col] > 0)
+			printf("\t\t%s++;\n", pl->id);
+	}
+}
+
+void remove_loop(char *id1, char *id2, unsigned int loop_n){
+	// aggiunta di un posto ed una transizione intermedia
+	char *new_pl_id = get_new_id("l00pp", loop_n);
+	char *new_tr_id = get_new_id("l00pt", loop_n);
+	add_place(new_pl_id, NULL, pl_index, 1, 0);
+	add_transition(new_tr_id, NULL, tr_index);	
+	tr_index++;
+
+	struct transition *tr;
+	HASH_FIND_STR(tr_map, id1, tr);
+	struct place *pl;
+	HASH_FIND_STR(pl_map, id2, pl);
+
+	// avendo appena inserito nelle struct un nuovo posto e una nuova
+	// transizione, posso accedere alle relative righe e colonne nella matrice
+	// usando i valori di pl_index - 1 e tr_index - 1
+	
+	// aggiornamento degli archi 
+	// arco da vecchia transizione a vecchio posto
+	net[pl->net_pl_index][tr->net_tr_index] = 1; 
+	// arco da vecchio posto a nuova transizione
+	net[pl->net_pl_index][tr_index - 1] = -1;
+	// arco da nuova transizione a nuovo posto
+	net[tr_index - 1][pl_index - 1] = 1;
+	// arco da nuovo posto a vecchia transizione
+	net[pl_index - 1][tr->net_tr_index] = -1;
+}
+
 

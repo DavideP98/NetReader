@@ -8,6 +8,7 @@
 	void yyerror(char *s);	/* chiamata da yyparse() in caso di errore */ 
 	char *temp[5];
 	int cnt;
+	unsigned int loop_count = 0;
 %}
 
 %union {
@@ -76,8 +77,21 @@ exp			: NUM '(' name_list ')' exp /* sintassi espansione rete */
 				}
 			/* sintassi per la strategia del gioco su rete di petri */
 			| strategy exp 
+			| '&' NAME ',' NAME ';' exp 
+				{ 
+					struct transition *tr;
+					HASH_FIND_STR(tr_map, $2, tr);
+					if(tr == NULL)
+						// il primo nodo in input è un posto
+						remove_loop($4, $2, loop_count);
+					else
+						// il primo nodo in input è una transizione
+						remove_loop($2, $4, loop_count);
+					loop_count++;
+				}
 			| /* epsilon */
 			;	
+
 
 strategy	: name_list_p ':' NAME ';'
 				{
@@ -86,6 +100,7 @@ strategy	: name_list_p ':' NAME ';'
 					for(int i = 0; i < 5; i++){
 						tr->strategy[i] = temp[i];
 					}
+					tr->user_tr = true;
 					cnt = 0;
 				}
 			;
@@ -141,6 +156,7 @@ void read_file(char *filename){
 }
 
 int main(int argc, char **argv){
+
 	switch(argc){
 		case 1:
 			printf("Error: missing file name argument\n");
@@ -162,6 +178,8 @@ int main(int argc, char **argv){
 				print_pml();
 			else if(!strcmp(argv[1], "-pml2"))
 				print_pml2();
+			else if(!strcmp(argv[1], "-mat"))
+				print_matrix(pl_index, tr_index);
 			else
 				printf("Unknown argument: possible arguments are -net -pml -pml2\n");
 			break;
@@ -169,18 +187,7 @@ int main(int argc, char **argv){
 			printf("Error: too many arguments\n");
 			break;
 	}
-	/*
-	struct transition *tr;
-	for(tr = tr_map; tr != NULL; tr = tr->hh.next){
-		if(tr->strategy[0] != NULL){
-			printf("%s scatta quando: ", tr->id);
-			for(int i = 0; i < 5; i++){
-				printf("%s ", tr->strategy[i]);
-			}
-			printf("sono marcati\n");
-		}
-	}
-	*/
+
 }
 
 void yyerror (char *s) {
