@@ -28,6 +28,11 @@ Per passare al programma le informazioni per la strategia del giocatore si usa q
 p2, p3, ... : t4;   
 p2, p4, ... : t3;   
 
+## Segnalazione dei cappi:   
+La presenza dei cappi nel grafo della rete va segnalata nelle note di Nd con la seguente sintassi:   
+& n1, n2;   
+che indica la presenza di un cappio tra il nodo n1 e n2.   
+
 ## Verifica con Spin   
 spin -a -f "!goal" modello.pml   
 gcc -o pan pan.c   
